@@ -19,10 +19,10 @@ def main(args):
     # WARSTWA ZARZĄDZANIA API (API SECURITY LAYER)
     # =================================================================
     
-    # Pobieramy metadane połączenia HTTP przekazane przez IBM Cloud
-    method = str(args.get("__ow_method", "post")).lower()
-    headers = {k.lower(): v for k, v in args.get("__ow_headers", {}).items()}
-    raw_body = args.get("__ow_body", "")
+    # Pobieramy metadane połączenia HTTP przekazane przez IBM Cloud Code Engine
+    method = str(args.get("__ce_method", "post")).lower()
+    headers = {k.lower(): v for k, v in args.get("__ce_headers", {}).items()}
+    raw_body = args.get("__ce_body", "")
 
     # Definiujemy oczekiwany klucz API (Najlepiej dodać go do zmiennych środowiskowych jako SECURE_API_KEY)
     SECURE_API_KEY = os.environ.get("SECURE_API_KEY")
