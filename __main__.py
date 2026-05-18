@@ -42,6 +42,7 @@ def main(args):
         project_id = os.environ.get("WATSONX_PROJECT_ID")
         cos_endpoint = os.environ.get("COS_ENDPOINT")
         watsonx_url = os.environ.get("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+        ibm_cloud_api_key = os.environ.get("IBM_CLOUD_API_KEY")
 
         missing = []
         if not bucket_name:
@@ -52,6 +53,8 @@ def main(args):
             missing.append("WATSONX_PROJECT_ID")
         if not cos_endpoint:
             missing.append("COS_ENDPOINT")
+        if not ibm_cloud_api_key:
+            missing.append("IBM_CLOUD_API_KEY")
 
         if missing:
             return response(500, {
@@ -61,10 +64,11 @@ def main(args):
 
         try:
             cos = ibm_boto3.client(
-                "s3",
-                config=Config(signature_version="oauth"),
-                endpoint_url=cos_endpoint
-            )
+            "s3",
+            ibm_api_key_id=ibm_cloud_api_key,
+            config=Config(signature_version="oauth"),
+            endpoint_url=cos_endpoint
+        )
         except Exception as e:
             return response(500, {
                 "error": "Nie udało się utworzyć klienta IBM COS",
@@ -123,7 +127,9 @@ def main(args):
 
         try:
             credentials = {
-                "url": watsonx_url
+                "url": watsonx_url,
+                "apikey": ibm_cloud_api_key,
+                "api_key": ibm_cloud_api_key
             }
 
             params = {
