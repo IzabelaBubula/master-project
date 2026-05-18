@@ -19,7 +19,7 @@ def main(args):
         return {
             "statusCode": 400,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": "Brak pola 'text' w żądaniu"})
+            "body": {"error": "Brak pola 'text' w żądaniu"}
         }
 
     request_id = str(uuid.uuid4())
@@ -52,7 +52,7 @@ def main(args):
             return {
                 "statusCode": 400, 
                 "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": f"Błąd IBM COS: {str(e)}", "request_id": request_id})
+                "body": {"error": f"Błąd IBM COS: {str(e)}", "request_id": request_id}
             }
     
     # 3. Budowanie kontekstu dla modelu i System Promptu (Struktura dla Llama 3)
@@ -131,8 +131,8 @@ def main(args):
         "headers": {
             "Content-Type": "application/json"
         },
-        "body": json.dumps({
+        "body": {
             "analysis": output_text, 
             "cos_key": log_key
-        }, ensure_ascii=False)
+        }
     }
