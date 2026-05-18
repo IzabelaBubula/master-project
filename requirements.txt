@@ -1,0 +1,2 @@
+ibm-boto3
+ibm-watsonx-ai
