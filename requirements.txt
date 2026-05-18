@@ -1,4 +1,1 @@
-flask
-gunicorn
-ibm-cos-sdk==2.14.3
-ibm-watsonx-ai==1.3.24
+
