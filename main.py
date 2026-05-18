@@ -27,12 +27,12 @@ def main(args):
     file_content = ""
 
     # Pobieranie zmiennych środowiskowych (Konfiguracja 1:1)
-    BUCKET = os.environ.get("BUCKET_NAME", "uploads")
-    MODEL_ID = os.environ.get("MODEL_ID", "meta-llama/llama-3-3-70b-instruct")
+    BUCKET = os.environ.get("BUCKET_NAME")
+    MODEL_ID = os.environ.get("MODEL_ID")
     PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID")
     
     # KROK BEZPIECZEŃSTWA: Używamy wewnętrznego, prywatnego adresu sieciowego IBM dla Dallas (odpowiednik VPC Endpoint)
-    COS_ENDPOINT = "https://s3.private.us-south.cloud-object-storage.appdomain.cloud"
+    COS_ENDPOINT = os.environ.get("COS_ENDPOINT")
     
     # Inicjalizacja klienta IBM Cloud Object Storage (COS)
     # Autoryzacja odbywa się bezhasełkowo dzięki włączonemu uprzednio "Trusted Profile"
