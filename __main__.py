@@ -25,7 +25,7 @@ def main(args):
     raw_body = args.get("__ow_body", "")
 
     # Definiujemy oczekiwany klucz API (Najlepiej dodać go do zmiennych środowiskowych jako SECURE_API_KEY)
-    SECURE_API_KEY = os.environ.get("SECURE_API_KEY", "MojeSuperTajneHaslo123!")
+    SECURE_API_KEY = os.environ.get("SECURE_API_KEY")
 
     # --- TEST API-02: Wywołanie API niepoprawną metodą HTTP ---
     if method != "post":
