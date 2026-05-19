@@ -126,6 +126,8 @@ def main(args):
         cos_endpoint = os.environ.get("COS_ENDPOINT")
         watsonx_url = os.environ.get("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
         ibm_cloud_api_key = os.environ.get("IBM_CLOUD_API_KEY")
+        ibm_cloud_storadge_api_key = os.environ.get("IBM_CLOUD_STORADGE_API_KEY")
+
 
         missing = []
 
@@ -149,7 +151,7 @@ def main(args):
         try:
             cos = ibm_boto3.client(
                 "s3",
-                ibm_api_key_id=ibm_cloud_api_key,
+                ibm_api_key_id=ibm_cloud_storadge_api_key,
                 config=Config(signature_version="oauth"),
                 endpoint_url=cos_endpoint
             )
