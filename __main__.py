@@ -10,7 +10,7 @@ def response(status_code, body):
         "headers": {
             "Content-Type": "application/json"
         },
-        "body": body
+        "body": json.dumps(body, ensure_ascii=False)
     }
 
 
@@ -18,13 +18,11 @@ def main(args):
     # =================================================================
     # WARSTWA ZARZĄDZANIA API (API SECURITY LAYER)
     # =================================================================
-    
-    # Pobieramy metadane połączenia HTTP przekazane przez IBM Cloud Code Engine
+
     method = str(args.get("__ce_method", "post")).lower()
     headers = {k.lower(): v for k, v in args.get("__ce_headers", {}).items()}
-    raw_body = args.get("__ce_body", "")
+    raw_body = args.get("__ce_body", None)
 
-    # Definiujemy oczekiwany klucz API (Najlepiej dodać go do zmiennych środowiskowych jako SECURE_API_KEY)
     SECURE_API_KEY = os.environ.get("SECURE_API_KEY")
 
     # --- TEST API-02: Wywołanie API niepoprawną metodą HTTP ---
@@ -35,37 +33,79 @@ def main(args):
 
     # --- TEST API-01: Wywołanie endpointu bez autoryzacji ---
     user_key = headers.get("x-api-key")
+
     if not user_key or user_key != SECURE_API_KEY:
         return response(401, {
             "error": "Brak autoryzacji lub przesłano niepoprawny klucz API."
         })
 
-    # --- TEST API-05: Przesłanie nadmiernie dużego payloadu (Ochrona DoS) ---
-    content_length = headers.get("content-length")
-    max_allowed_size = 1 * 1024 * 1024  # Limit 1 MB dla żądań tekstowych do LLM
-    
-    if content_length:
-        try:
-            if int(content_length) > max_allowed_size:
-                return response(413, {"error": "Przesłany payload jest za duży (maksymalnie 1MB)."})
-        except ValueError:
-            pass
-    elif raw_body and len(str(raw_body).encode('utf-8')) > max_allowed_size:
-        return response(413, {"error": "Przesłany payload jest za duży (maksymalnie 1MB)."})
+    # --- TEST API-03: Niepoprawny format zapytania / błędny JSON ---
+    content_type = headers.get("content-type", "")
 
-    # --- TEST API-03: Przesłanie niepoprawnego formatu JSON ---
-    # Jeśli użytkownik wysłał uszkodzoną strukturę JSON, sprawdzamy to przed dalszym procesowaniem
-    if raw_body and "application/json" in headers.get("content-type", ""):
+    if "application/json" not in content_type:
+        return response(400, {
+            "error": "Nieprawidłowy format zapytania. Wymagany nagłówek Content-Type: application/json."
+        })
+
+    # Próba pobrania danych już rozpakowanych przez IBM Code Engine
+    filename = str(args.get("filename", "") or "").strip()
+    user_query_raw = args.get("text", None)
+
+    # Jeżeli pole text nie istnieje, a mamy surowe body, sprawdzamy czy JSON był poprawny
+    if user_query_raw is None and raw_body:
         try:
-            json.loads(raw_body)
+            if isinstance(raw_body, str):
+                parsed_body = json.loads(raw_body)
+
+                if not isinstance(parsed_body, dict):
+                    return response(400, {
+                        "error": "Nieprawidłowy format zapytania. Body musi być obiektem JSON."
+                    })
+
+                user_query_raw = parsed_body.get("text", None)
+                filename = str(parsed_body.get("filename", "") or "").strip()
+
         except (ValueError, TypeError):
             return response(400, {
-                "error": "Przesłane dane nie są poprawnym formatem JSON (Błąd parsowania)."
+                "error": "Nieprawidłowy format zapytania. Body musi być poprawnym JSON-em, np. {\"text\": \"treść zapytania\"}."
             })
+
+    # --- TEST API-04: Brak wymaganego pola text ---
+    if user_query_raw is None:
+        return response(400, {
+            "error": "Nieprawidłowy format zapytania lub brak wymaganego pola 'text'. Body powinno mieć postać: {\"text\": \"treść zapytania\"}."
+        })
+
+    if not isinstance(user_query_raw, str):
+        return response(400, {
+            "error": "Nieprawidłowy format pola 'text'. Pole 'text' musi być tekstem."
+        })
+
+    user_query = user_query_raw.strip()
+
+    if not user_query:
+        return response(400, {
+            "error": "Pole 'text' nie może być puste."
+        })
+
+    # --- TEST API-05: Przesłanie nadmiernie dużego payloadu ---
+    # Ochrona przed DoS / Resource Exhaustion
+    max_allowed_size = 1 * 1024 * 1024  # 1 MB
+
+    estimated_payload_size = len(json.dumps({
+        "filename": filename,
+        "text": user_query
+    }, ensure_ascii=False).encode("utf-8"))
+
+    if estimated_payload_size > max_allowed_size:
+        return response(413, {
+            "error": "Przesłany payload jest za duży (maksymalnie 1MB)."
+        })
 
     # =================================================================
     # GŁÓWNA LOGIKA BIZNESOWA APLIKACJI
     # =================================================================
+
     try:
         import ibm_boto3
         from ibm_botocore.client import Config, ClientError
@@ -77,15 +117,6 @@ def main(args):
         })
 
     try:
-        filename = str(args.get("filename", "") or "").strip()
-        user_query = str(args.get("text", "") or "").strip()
-
-        # --- TEST API-04: Brak wymaganych pól w żądaniu (Walidacja schematu) ---
-        if not user_query:
-            return response(400, {
-                "error": "Brak wymaganego pola 'text' w żądaniu"
-            })
-
         request_id = str(uuid.uuid4())
         timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -97,11 +128,17 @@ def main(args):
         ibm_cloud_api_key = os.environ.get("IBM_CLOUD_API_KEY")
 
         missing = []
-        if not bucket_name: missing.append("BUCKET_NAME")
-        if not model_id: missing.append("MODEL_ID")
-        if not project_id: missing.append("WATSONX_PROJECT_ID")
-        if not cos_endpoint: missing.append("COS_ENDPOINT")
-        if not ibm_cloud_api_key: missing.append("IBM_CLOUD_API_KEY")
+
+        if not bucket_name:
+            missing.append("BUCKET_NAME")
+        if not model_id:
+            missing.append("MODEL_ID")
+        if not project_id:
+            missing.append("WATSONX_PROJECT_ID")
+        if not cos_endpoint:
+            missing.append("COS_ENDPOINT")
+        if not ibm_cloud_api_key:
+            missing.append("IBM_CLOUD_API_KEY")
 
         if missing:
             return response(500, {
@@ -130,13 +167,16 @@ def main(args):
                     Bucket=bucket_name,
                     Key=f"uploads/{filename}"
                 )
+
                 file_content = file_obj["Body"].read().decode("utf-8")
+
             except ClientError as e:
                 return response(400, {
                     "error": "Nie udało się pobrać pliku z IBM COS",
                     "details": str(e),
                     "expected_key": f"uploads/{filename}"
                 })
+
             except Exception as e:
                 return response(400, {
                     "error": "Nieoczekiwany błąd podczas pobierania pliku z COS",
@@ -212,6 +252,7 @@ def main(args):
 
         log_key = f"logs/{request_id}.json"
         log_saved = False
+        log_error = None
 
         try:
             cos.put_object(
@@ -221,6 +262,7 @@ def main(args):
                 ContentType="application/json"
             )
             log_saved = True
+
         except Exception as e:
             log_error = str(e)
 
