@@ -185,11 +185,11 @@ def main(args):
         file_content = ""
 
         if filename:
-            logger.info(f"[{request_id}] Próba odczytu pliku z IBM COS: 'uploads/{filename}' z bucketu: '{bucket_name}'")
+            logger.info(f"[{request_id}] Próba odczytu pliku z IBM COS: '{filename}' z bucketu: '{bucket_name}'")
             try:
                 file_obj = cos.get_object(
                     Bucket=bucket_name,
-                    Key=f"uploads/{filename}"
+                    Key=filename
                 )
                 file_content = file_obj["Body"].read().decode("utf-8")
                 logger.info(f"[{request_id}] Pomyślnie pobrano i zdekodowano plik z COS. Rozmiar: {len(file_content)} znaków.")
