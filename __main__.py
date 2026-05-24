@@ -56,7 +56,7 @@ def main(args):
     user_key = headers.get("x-api-key")
 
     if not user_key or user_key != SECURE_API_KEY:
-        logger.error(f"[{request_id}] Błąd autoryzacji (API-01): Nieprawidłowy lub brakujący x-api-key.")
+        logger.error(f"[{request_id}] Błąd autoryzacji: Nieprawidłowy lub brakujący x-api-key.")
         return response(401, {
             "error": "Brak autoryzacji lub przesłano niepoprawny klucz API."
         })
@@ -65,7 +65,7 @@ def main(args):
     content_type = headers.get("content-type", "")
 
     if "application/json" not in content_type:
-        logger.warning(f"[{request_id}] Zły format nagłówka (API-03): Content-Type to '{content_type}' zamiast application/json.")
+        logger.warning(f"[{request_id}] Zły format nagłówka: Content-Type to '{content_type}' zamiast application/json.")
         return response(400, {
             "error": "Nieprawidłowy format zapytania. Wymagany nagłówek Content-Type: application/json."
         })
